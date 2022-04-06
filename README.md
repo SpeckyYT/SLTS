@@ -1,0 +1,3 @@
+# SLTS
+
+Slots in SPWN.

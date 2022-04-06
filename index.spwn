@@ -1,0 +1,84 @@
+extract obj_props
+
+slots_quantity = 3
+
+screen = ?g
+points = counter()
+slots = [counter(bits = slots_quantity.log(2).ceil()) for i in 0..slots_quantity]
+stopped = [counter(false) for i in 0..slots_quantity]
+is_fully_stopped = counter(false)
+
+for i in 0..slots.length {
+    $.add(slots[i].to_obj().with(X, i * 75 + 60).with(Y, 50).with(GROUPS, screen))
+}
+$.add(points.to_obj().with(X, 50).with(Y, 90).with(GROUPS, screen))
+
+screen.lock_to_player(lock_x = true, lock_y = false)
+
+stop_next = !{
+    if is_fully_stopped == 0 {
+        for i in 0..stopped.length {
+            if stopped[i] == 0 {
+                stopped[i] = true
+                break
+            }
+        }
+
+        equal_count = counter(0, bits = slots.length.log(2).ceil())
+
+        if stopped.all(>0) {
+            for i in 0..slots.length {
+                current = counter(0, bits = slots.length.log(2).ceil())
+                for j in (i+1)..slots.length {
+                    if slots[i] == slots[j] { current++ }
+                }
+                if current > equal_count { equal_count = current }
+            }
+
+            is_fully_stopped = true
+
+            number = equal_count.to_const(1..(slots_quantity+1))
+            points += number ^ 5
+        }
+    } else {
+        is_fully_stopped = false
+        stopped.map(c => c = false)
+    }
+}
+
+shuffle_slot = (slot: @counter, shuffler_type: @number){
+    // if slot < 0 || slot > 9 { slot = 0 } // "de-bugger"
+    match shuffler_type {
+        ==0: (){
+            // sequential
+            if slot >= 9 {
+                slot -= 9
+            } else {
+                slot++
+            }
+        }(),
+        ==1: (){
+            // randomizer
+            random = @array(0..10).shuffle()
+            for j in 0..random.length {
+                if slot == random[j] {
+                    difference = random[j+1 if j < random.length - 1 else 0] - random[j]
+                    slot += difference
+                }
+            }
+        }(),
+        else: (){
+            throw "invalid shuffler type"
+        }(),
+    }
+}
+
+while_loop(() => true, (){
+    for i in 0..slots.length {
+        if stopped[i] == 0 {
+            shuffle_slot(slots[i], 0);
+        }
+    }
+})
+
+on(touch(), stop_next)
